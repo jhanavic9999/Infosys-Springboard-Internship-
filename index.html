@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Milestone 2 Chat</title>
+  <style>
+    body{font-family:Arial, sans-serif;background:#f5f7fa;margin:0;padding:0;display:flex;align-items:center;justify-content:center;height:100vh}
+    .chat{width:420px;background:#fff;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.08);overflow:hidden;display:flex;flex-direction:column}
+    .header{padding:12px 16px;background:#1167b1;color:#fff;font-weight:600}
+    .messages{flex:1;padding:12px;overflow:auto}
+    .message{margin-bottom:10px}
+    .meta{font-size:12px;color:#666}
+    .bubble{background:#eef6ff;padding:8px 10px;border-radius:6px;display:inline-block;margin-top:4px}
+    .composer{display:flex;padding:10px;border-top:1px solid #eee}
+    .composer input[type="text"]{flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;margin-right:8px}
+    .composer button{padding:8px 12px;border:0;background:#1167b1;color:#fff;border-radius:4px}
+  </style>
+</head>
+<body>
+  <div class="chat">
+    <div class="header">Milestone 2 — Real-time Chat</div>
+    <div id="messages" class="messages"></div>
+    <div class="composer">
+      <input id="messageInput" type="text" placeholder="Type a message" autocomplete="off" />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const username = (window.prompt('Enter your username') || 'Anonymous').trim();
+    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = protocol + '://' + location.host + '/ws';
+    const ws = new WebSocket(wsUrl);
+    const messagesEl = document.getElementById('messages');
+    const input = document.getElementById('messageInput');
+    const btn = document.getElementById('sendBtn');
+
+    function appendMessage(obj){
+      const el = document.createElement('div');
+      el.className = 'message';
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = obj.username + ' • ' + obj.timestamp;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = obj.message;
+      el.appendChild(meta);
+      el.appendChild(bubble);
+      messagesEl.appendChild(el);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    ws.onopen = () => {
+      console.log('connected');
+      // announce join to other clients
+      const joinPayload = { username, message: 'joined the chat' };
+      ws.send(JSON.stringify(joinPayload));
+    };
+
+    // try to announce leave when the page unloads
+    window.addEventListener('beforeunload', () => {
+      try{
+        const leavePayload = { username, message: 'left the chat' };
+        ws.send(JSON.stringify(leavePayload));
+      }catch(e){}
+    });
+
+    ws.onmessage = (ev) => {
+      try{
+        const data = JSON.parse(ev.data);
+        appendMessage(data);
+      }catch(e){
+        console.error('invalid message', ev.data);
+      }
+    };
+
+    function send(){
+      const text = input.value.trim();
+      if(!text) return;
+      const payload = { username, message: text };
+      ws.send(JSON.stringify(payload));
+      input.value = '';
+    }
+
+    btn.addEventListener('click', send);
+    input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') send(); });
+  </script>
+</body>
+</html>
